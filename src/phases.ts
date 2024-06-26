@@ -409,6 +409,10 @@ export class TitlePhase extends Phase {
     this.scene.pushPhase(new EncounterPhase(this.scene, this.loaded));
 
     if (this.loaded) {
+      //this.scene.pushPhase(new EncounterPhase(this.scene, this.loaded));
+      console.log("reloaded");
+      //console.log("this scene isNewBiome = " + this.scene.isNewBiome); // seems to be undefined if not.
+      //console.log("sessionData isNewBiome = " + this.lastSessionData.isNewBiome); // seems to always be false?
       const availablePartyMembers = this.scene.getParty().filter(p => p.isAllowedInBattle()).length;
 
       this.scene.pushPhase(new SummonPhase(this.scene, 0, true, true));
@@ -906,6 +910,7 @@ export class EncounterPhase extends BattlePhase {
 
       this.scene.ui.setMode(Mode.MESSAGE).then(() => {
         if (!this.loaded) {
+          console.log("Saving...?"); // This is where it saves?
           this.scene.gameData.saveAll(this.scene, true, battle.waveIndex % 10 === 1 || this.scene.lastSavePlayTime >= 300).then(success => {
             this.scene.disableMenu = false;
             if (!success) {
@@ -1073,9 +1078,11 @@ export class EncounterPhase extends BattlePhase {
     }
 
     if (!this.loaded) {
+      console.log("!this.loaded"); // first time it's happening
       const availablePartyMembers = this.scene.getParty().filter(p => p.isAllowedInBattle());
-
+      console.log(availablePartyMembers);
       if (!availablePartyMembers[0].isOnField()) {
+        console.log("first load 1");
         this.scene.pushPhase(new SummonPhase(this.scene, 0));
       }
 
@@ -1088,6 +1095,7 @@ export class EncounterPhase extends BattlePhase {
         }
       } else {
         if (availablePartyMembers.length > 1 && availablePartyMembers[1].isOnField()) {
+          console.log("first load 2");
           this.scene.pushPhase(new ReturnPhase(this.scene, 1));
         }
         this.scene.pushPhase(new ToggleDoublePositionPhase(this.scene, false));
@@ -1096,12 +1104,15 @@ export class EncounterPhase extends BattlePhase {
       if (this.scene.currentBattle.battleType !== BattleType.TRAINER && (this.scene.currentBattle.waveIndex > 1 || !this.scene.gameMode.isDaily)) {
         const minPartySize = this.scene.currentBattle.double ? 2 : 1;
         if (availablePartyMembers.length > minPartySize) {
+          console.log("first load 3");
           this.scene.pushPhase(new CheckSwitchPhase(this.scene, 0, this.scene.currentBattle.double));
           if (this.scene.currentBattle.double) {
             this.scene.pushPhase(new CheckSwitchPhase(this.scene, 1, this.scene.currentBattle.double));
           }
         }
       }
+      //this.scene.pushPhase(new PostSummonPhase(this.scene, p.getBattlerIndex());
+      //put this at the end of switch phase if they cancel switch out, but only after a biome is switched, is reloaded-maybe, or pokemon returns resetting things...
     }
     handleTutorial(this.scene, Tutorial.Access_Menu).then(() => super.end());
   }
@@ -1789,12 +1800,14 @@ export class CheckSwitchPhase extends BattlePhase {
 
     this.scene.ui.showText(i18next.t("battle:switchQuestion", { pokemonName: this.useName ? pokemon.name : i18next.t("battle:pokemon") }), null, () => {
       this.scene.ui.setMode(Mode.CONFIRM, () => {
-        this.scene.ui.setMode(Mode.MESSAGE);
+        this.scene.ui.setMode(Mode.MESSAGE); // you said yes to switch and you're in the party screen
+        console.log("or is this the cancel messagE?");
         this.scene.tryRemovePhase(p => p instanceof PostSummonPhase && p.player && p.fieldIndex === this.fieldIndex);
         this.scene.unshiftPhase(new SwitchPhase(this.scene, this.fieldIndex, false, true));
+        console.log("about to end");
         this.end();
       }, () => {
-        this.scene.ui.setMode(Mode.MESSAGE);
+        this.scene.ui.setMode(Mode.MESSAGE); // you said no to switch option, ability doesn't apply
         this.end();
       });
     });
@@ -4396,6 +4409,9 @@ export class SwitchPhase extends BattlePhase {
     this.scene.ui.setMode(Mode.PARTY, this.isModal ? PartyUiMode.FAINT_SWITCH : PartyUiMode.POST_BATTLE_SWITCH, fieldIndex, (slotIndex: integer, option: PartyOption) => {
       if (slotIndex >= this.scene.currentBattle.getBattlerCount() && slotIndex < 6) {
         this.scene.unshiftPhase(new SwitchSummonPhase(this.scene, fieldIndex, slotIndex, this.doReturn, option === PartyOption.PASS_BATON));
+      } else if (this.scene.isFreshBattle) { // I assume this is upon canceling. Is there a scenario that this is suppose to be a silent end if the first if isn't true?
+        const pokemonStayIn = this.scene.getPlayerField()[fieldIndex];
+        this.scene.pushPhase(new PostSummonPhase(this.scene, pokemonStayIn.getBattlerIndex()));
       }
       this.scene.ui.setMode(Mode.MESSAGE).then(() => super.end());
     }, PartyUiHandler.FilterNonFainted);

@@ -208,6 +208,8 @@ export default class BattleScene extends SceneBase {
   public money: integer;
   public pokemonInfoContainer: PokemonInfoContainer;
   private party: PlayerPokemon[];
+  /** For determining whether to call postSummon abilities on new biome reloads */
+  public isFreshBattle: boolean = false;
   /** Combined Biome and Wave count text */
   private biomeWaveText: Phaser.GameObjects.Text;
   private moneyText: Phaser.GameObjects.Text;
@@ -1105,6 +1107,7 @@ export default class BattleScene extends SceneBase {
         }, lastBattle.waveIndex << 4);
       }
       const resetArenaState = isNewBiome || this.currentBattle.battleType === BattleType.TRAINER || this.currentBattle.battleSpec === BattleSpec.FINAL_BOSS;
+      this.isFreshBattle = resetArenaState;
       this.getEnemyParty().forEach(enemyPokemon => enemyPokemon.destroy());
       this.trySpreadPokerus();
       if (!isNewBiome && (newWaveIndex % 10) === 5) {
